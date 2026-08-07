@@ -26,12 +26,12 @@ const NAV_LINKS = [
   { label: "Contact", href: "#contact" },
 ];
 
-const PRODUCTS = [
-  { name: "Arachides Grillées", brand: "Nkalanga Yetu", desc: "Le vrai goût des arachides grillées, fraîches, croquantes et savoureuses à chaque bouchée.", img: "/images/arachides-grillees.jpg", tag: "Best-seller", gradient: "from-amber-600 to-orange-700" },
-  { name: "Arachides Caramélisées", brand: "Mwaiseni", desc: "Enrobées d’un caramel doré, un plaisir gourmand et irrésistible unique en son genre.", img: "/images/arachides-caramelisees.jpg", tag: "Populaire", gradient: "from-yellow-600 to-amber-700" },
-  { name: "Croquants Croq d'Or", brand: "Croq d'Or", desc: "Croustillants, savoureux, sans conservateurs. Le plaisir artisanal à chaque bouchée.", img: "/images/croquants.jpg", tag: "Artisanal", gradient: "from-orange-600 to-red-700" },
-  { name: "Gaufres", brand: "Mwaiseni", desc: "Fabriquées localement avec soin pour toute la famille. Qualité garantie.", img: "/images/gaufres.jpg", tag: "Familial", gradient: "from-yellow-500 to-orange-600" },
-  { name: "Feuilles de Djeka", brand: "Mwaiseni", desc: "Feuilles de jute fraîches, riches en fer et en nutriments. Un super-aliment local pour une alimentation saine.", img: "/images/feuilles-djeka.jpg", tag: "Nouveau", gradient: "from-green-600 to-emerald-700" },
+const FALLBACK_PRODUCTS = [
+  { name: "Arachides Grillées", brand: "Nkalanga Yetu", desc: "Le vrai goût des arachides grillées, fraîches, croquantes et savoureuses à chaque bouchée.", img: "/images/arachides-grillees.jpg", tag: "Best-seller", gradient: "from-amber-600 to-orange-700", order: 1 },
+  { name: "Arachides Caramélisées", brand: "Mwaiseni", desc: "Enrobées d’un caramel doré, un plaisir gourmand et irrésistible unique en son genre.", img: "/images/arachides-caramelisees.jpg", tag: "Populaire", gradient: "from-yellow-600 to-amber-700", order: 2 },
+  { name: "Croquants Croq d'Or", brand: "Croq d'Or", desc: "Croustillants, savoureux, sans conservateurs. Le plaisir artisanal à chaque bouchée.", img: "/images/croquants.jpg", tag: "Artisanal", gradient: "from-orange-600 to-red-700", order: 3 },
+  { name: "Gaufres", brand: "Mwaiseni", desc: "Fabriquées localement avec soin pour toute la famille. Qualité garantie.", img: "/images/gaufres.jpg", tag: "Familial", gradient: "from-yellow-500 to-orange-600", order: 4 },
+  { name: "Feuilles de Djeka", brand: "Mwaiseni", desc: "Feuilles de jute fraîches, riches en fer et en nutriments. Un super-aliment local pour une alimentation saine.", img: "/images/feuilles-djeka.jpg", tag: "Nouveau", gradient: "from-green-600 to-emerald-700", order: 5 },
 ];
 
 const ACTIVITIES = [
@@ -347,6 +347,17 @@ function About() {
    ═══════════════════════════════════════════ */
 
 function Products() {
+  const [products, setProducts] = useState(FALLBACK_PRODUCTS);
+  useEffect(() => {
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setProducts(data);
+        }
+      })
+      .catch(() => { /* fallback already set */ });
+  }, []);
   return (
     <section id="produits" className="py-28 sm:py-36 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden">
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-50 rounded-full blur-[120px] opacity-60" />
@@ -361,8 +372,8 @@ function Products() {
           </p>
         </FadeIn>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
-          {PRODUCTS.map((p, i) => (
-            <FadeIn key={p.name} delay={i * 0.12}>
+          {products.map((p, i) => (
+            <FadeIn key={p.id || p.name} delay={i * 0.12}>
               <div className="group relative bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-3xl hover:shadow-black/15 transition-all duration-700 border border-gray-100/80">
                 <div className="relative h-64 overflow-hidden">
                   <Image src={p.img} alt={p.name} fill className="object-cover transition-all duration-700 group-hover:scale-110 brightness-95 group-hover:brightness-105" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw" />
@@ -390,7 +401,6 @@ function Products() {
     </section>
   );
 }
-
 /* ═══════════════════════════════════════════
    ACTIVITIES (Objet Social) — dark section
    ═══════════════════════════════════════════ */
@@ -611,8 +621,8 @@ function Contact() {
           <FadeIn direction="right" className="lg:col-span-2 flex flex-col gap-5">
             {[
               { icon: Phone, label: "Téléphone & WhatsApp", value: "+27751492073", href: "https://wa.me/27751492073" },
-              { icon: Mail, label: "Email", value: "info@mwaiseni.com", href: "mailto:info@mwaiseni.com" },
-              { icon: MapPin, label: "Siège", value: "Lubumbashi, RDC", href: "#" },
+              { icon: Mail, label: "Email", value: "mwaiseniservices@gmail.com", href: "mailto:mwaiseniservices@gmail.com" },
+              { icon: MapPin, label: "Siège", value: "Kasumbalesa, Av. MG n°21, Lubumbashi, RDC", href: "#" },
             ].map((c, i) => (
               <a key={c.label} href={c.href} target={c.href.startsWith("http") ? "blank" : undefined}>
                 <div className="group flex items-start gap-4 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-lg hover:shadow-emerald-500/5 hover:border-emerald-200 transition-all duration-500">
@@ -660,7 +670,7 @@ function Footer() {
               <a href="https://wa.me/27751492073" target="blank" className="w-10 h-10 rounded-xl bg-white/5 hover:bg-[#25D366]/20 border border-white/[0.06] hover:border-[#25D366]/30 flex items-center justify-center transition-all duration-300">
                 <MessageCircle className="w-4 h-4 text-white/60 hover:text-[#25D366]" />
               </a>
-              <a href="mailto:info@mwaiseni.com" className="w-10 h-10 rounded-xl bg-white/5 hover:bg-emerald-500/20 border border-white/[0.06] hover:border-emerald-500/30 flex items-center justify-center transition-all duration-300">
+              <a href="mailto:mwaiseniservices@gmail.com" className="w-10 h-10 rounded-xl bg-white/5 hover:bg-emerald-500/20 border border-white/[0.06] hover:border-emerald-500/30 flex items-center justify-center transition-all duration-300">
                 <Mail className="w-4 h-4 text-white/60 hover:text-emerald-400" />
               </a>
             </div>
@@ -688,13 +698,13 @@ function Footer() {
             <h4 className="font-extrabold text-white text-sm uppercase tracking-widest mb-6">Contact & Légal</h4>
             <ul className="space-y-3 text-sm">
               <li className="flex items-center gap-2 text-white/40"><Phone className="w-3.5 h-3.5 shrink-0" />+27751492073</li>
-              <li className="flex items-center gap-2 text-white/40"><Mail className="w-3.5 h-3.5 shrink-0" />info@mwaiseni.com</li>
+              <li className="flex items-center gap-2 text-white/40"><Mail className="w-3.5 h-3.5 shrink-0" />mwaiseniservices@gmail.com</li>
               <li className="flex items-center gap-2 text-white/40"><MapPin className="w-3.5 h-3.5 shrink-0" />Lubumbashi, RDC</li>
             </ul>
             <div className="mt-6 pt-6 border-t border-white/[0.06] space-y-1.5">
-              <p className="text-white/25 text-xs">RCCM : CD/LUB/RCCM/23-B-00114</p>
-              <p className="text-white/25 text-xs">NIF : 0010452767F</p>
-              <p className="text-white/25 text-xs">Id.Nat : 1-98-N46054P</p>
+              <p className="text-white/25 text-xs">RCCM : CD/LSHI/RCCM/26-B01280</p>
+              <p className="text-white/25 text-xs">NIF : A2626863D</p>
+              <p className="text-white/25 text-xs">Id.Nat : 05-F4200-N00001C</p>
             </div>
           </div>
         </div>

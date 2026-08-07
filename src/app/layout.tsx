@@ -14,12 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mwaiseni Services SARL | Produits alimentaires de qualit\u00e9 \u00e0 Lubumbashi",
+  title: "Mwaiseni Services SARL | Produits alimentaires de qualité à Lubumbashi",
   description:
-    "Mwaiseni Services SARL - Arachides grill\u00e9es, croquants artisanaux et gaufres de qualit\u00e9. De notre ferme \u00e0 votre assiette. Commandez en gros ou devenez partenaire \u00e0 Lubumbashi, RDC.",
+    "Mwaiseni Services SARL - Arachides grillées, croquants artisanaux et gaufres de qualité. De notre ferme à votre assiette. Commandez en gros ou devenez partenaire à Lubumbashi, RDC.",
   keywords: [
     "Mwaiseni Services",
-    "arachides grill\u00e9es",
+    "arachides grillées",
     "croquants",
     "gaufres",
     "Nkalanga Yetu",
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Mwaiseni Services SARL",
     description:
-      "De notre ferme \u00e0 votre assiette. Produits alimentaires artisanaux de qualit\u00e9 \u00e0 Lubumbashi.",
+      "De notre ferme à votre assiette. Produits alimentaires artisanaux de qualité à Lubumbashi.",
     type: "website",
     locale: "fr_CD",
   },
