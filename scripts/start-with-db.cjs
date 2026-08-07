@@ -7,10 +7,17 @@ const path = require("path");
 const dbDir = process.env.DB_DIR || "/tmp";
 const dbPath = path.join(dbDir, "custom.db");
 
-// Create the directory if needed
+// Create the directories if needed
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
   console.log("[startup] Created directory: " + dbDir);
+}
+
+// Create uploads directory for admin image uploads
+var uploadDir = "/tmp/uploads";
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log("[startup] Created uploads directory: " + uploadDir);
 }
 
 // Ensure DATABASE_URL points to the writable location

@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, type FormEvent, type DragEvent } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Lock, LogOut, Plus, Pencil, Trash2, Eye, EyeOff,
   Save, X, Loader2, Package, ArrowUpDown, Upload, ImageIcon,
+  Check, ToggleLeft, ToggleRight,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════
@@ -26,6 +26,44 @@ interface Product {
   order: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/* ═══════════════════════════════════════════
+   COMPRESS IMAGE (client-side)
+   ═══════════════════════════════════════════ */
+
+function compressImage(file: File, maxWidth = 800, quality = 0.7): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let w = img.width;
+      let h = img.height;
+      if (w > maxWidth) {
+        h = Math.round((h * maxWidth) / w);
+        w = maxWidth;
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("Canvas error")); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { reject(new Error("Blob error")); return; }
+          const compressed = new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", {
+            type: "image/jpeg",
+            lastModified: Date.now(),
+          });
+          resolve(compressed);
+        },
+        "image/jpeg",
+        quality
+      );
+    };
+    img.onerror = () => reject(new Error("Image load error"));
+    img.src = URL.createObjectURL(file);
+  });
 }
 
 /* ═══════════════════════════════════════════
@@ -103,7 +141,7 @@ function LoginScreen({ onLogin }: { onLogin: (role: string, token: string) => vo
 }
 
 /* ═══════════════════════════════════════════
-   PRODUCT FORM (with image upload)
+   PRODUCT FORM (with image upload + compression)
    ═══════════════════════════════════════════ */
 
 function ProductForm({
@@ -119,12 +157,13 @@ function ProductForm({
     name: product?.name || "",
     brand: product?.brand || "",
     desc: product?.desc || "",
-    img: product?.img || "/images/",
+    img: product?.img || "",
     tag: product?.tag || "",
     gradient: product?.gradient || "",
     order: product?.order || 0,
   });
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -136,19 +175,21 @@ function ProductForm({
     // Validate type
     const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (!allowed.includes(file.type)) {
-      alert("Type non supporté. Utilisez JPG, PNG, WebP ou GIF.");
-      return;
-    }
-    // Validate size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Fichier trop volumineux. Maximum 5 Mo.");
+      setUploadStatus("Type non support\u00e9. Utilisez JPG, PNG, WebP ou GIF.");
       return;
     }
 
     setUploading(true);
+    setUploadStatus("Compression de l'image...");
+
     try {
+      // Compress image client-side to max 800px wide, 70% quality
+      const compressed = await compressImage(file, 800, 0.7);
+      const sizeKB = Math.round(compressed.size / 1024);
+      setUploadStatus(`Envoi (${sizeKB} Ko)...`);
+
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressed);
       const res = await fetch("/api/upload", {
         method: "POST",
         body: formData,
@@ -156,11 +197,14 @@ function ProductForm({
       const data = await res.json();
       if (res.ok && data.url) {
         setForm((prev) => ({ ...prev, img: data.url }));
+        setUploadStatus("Image envoy\u00e9e avec succ\u00e8s !");
+        setTimeout(() => setUploadStatus(""), 3000);
       } else {
-        alert(data.error || "Erreur lors de l'upload");
+        setUploadStatus(data.error || "Erreur lors de l'envoi");
       }
-    } catch {
-      alert("Erreur réseau");
+    } catch (err) {
+      console.error("Upload error:", err);
+      setUploadStatus("Erreur r\u00e9seau. R\u00e9essayez.");
     } finally {
       setUploading(false);
     }
@@ -178,9 +222,7 @@ function ProductForm({
     onSave(form);
   }
 
-  const previewUrl = form.img.startsWith("/api/images") || form.img.startsWith("/images/")
-    ? form.img
-    : null;
+  const previewUrl = form.img;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -197,7 +239,7 @@ function ProductForm({
           <div className="grid sm:grid-cols-2 gap-5">
             <div className="space-y-2">
               <label className="text-sm font-bold text-foreground/80">Nom du produit *</label>
-              <Input value={form.name} onChange={(e) => handleChange("name", e.target.value)} required className="h-11 rounded-xl" placeholder="Ex: Arachides Grillées" />
+              <Input value={form.name} onChange={(e) => handleChange("name", e.target.value)} required className="h-11 rounded-xl" placeholder="Ex: Arachides Grill\u00e9es" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-foreground/80">Marque *</label>
@@ -216,6 +258,8 @@ function ProductForm({
               className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-300 cursor-pointer ${
                 dragOver
                   ? "border-emerald-400 bg-emerald-50"
+                  : uploadStatus.startsWith("Image envoy\u00e9")
+                  ? "border-emerald-400 bg-emerald-50/50"
                   : "border-gray-200 hover:border-emerald-300 hover:bg-gray-50"
               }`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -236,16 +280,21 @@ function ProductForm({
               {uploading ? (
                 <div className="flex flex-col items-center gap-3 py-4">
                   <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
-                  <p className="text-sm font-semibold text-muted-foreground">Envoi en cours...</p>
+                  <p className="text-sm font-semibold text-emerald-600">{uploadStatus}</p>
                 </div>
               ) : previewUrl ? (
                 <div className="flex flex-col items-center gap-3">
-                  <div className="w-24 h-24 rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
-                    <img src={previewUrl} alt="Aperçu" className="w-full h-full object-cover" />
+                  <div className="w-28 h-28 rounded-xl overflow-hidden border border-gray-100 bg-gray-50 shadow-sm">
+                    <img src={previewUrl} alt="Aper\u00e7u" className="w-full h-full object-cover" />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Cliquer ou glisser pour changer l&apos;image
                   </p>
+                  {uploadStatus && (
+                    <p className={`text-xs font-semibold ${uploadStatus.startsWith("Image") ? "text-emerald-600" : "text-red-500"}`}>
+                      {uploadStatus}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3 py-2">
@@ -256,7 +305,7 @@ function ProductForm({
                     Glisser une image ici ou cliquer pour parcourir
                   </p>
                   <p className="text-xs text-muted-foreground/70">
-                    JPG, PNG, WebP ou GIF — Max 5 Mo
+                    JPG, PNG, WebP ou GIF — L&apos;image sera compress\u00e9e automatiquement
                   </p>
                 </div>
               )}
@@ -313,7 +362,7 @@ function ProductForm({
             </Button>
             <Button type="submit" className="flex-1 h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold shadow-lg shadow-emerald-600/20">
               <Save className="w-4 h-4 mr-2" />
-              {product?.id ? "Enregistrer" : "Créer le produit"}
+              {product?.id ? "Enregistrer" : "Cr\u00e9er le produit"}
             </Button>
           </div>
         </form>
@@ -332,6 +381,7 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [notification, setNotification] = useState("");
 
   const isSuperAdmin = role === "super_admin";
@@ -368,7 +418,7 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
           body: JSON.stringify(data),
         });
         if (res.ok) {
-          showNotif("Produit modifié avec succès");
+          showNotif("Produit modifi\u00e9 avec succ\u00e8s");
           setEditingProduct(null);
           loadProducts();
         } else {
@@ -381,22 +431,23 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
           body: JSON.stringify(data),
         });
         if (res.ok) {
-          showNotif("Produit créé avec succès");
+          showNotif("Produit cr\u00e9\u00e9 avec succ\u00e8s");
           setIsCreating(false);
           setEditingProduct(null);
           loadProducts();
         } else {
-          showNotif("Erreur lors de la création");
+          showNotif("Erreur lors de la cr\u00e9ation");
         }
       }
     } catch {
-      showNotif("Erreur réseau");
+      showNotif("Erreur r\u00e9seau");
     } finally {
       setSaving(false);
     }
   }
 
   async function handleToggleActive(product: Product) {
+    setTogglingId(product.id);
     try {
       const res = await fetch(`/api/products/${product.id}`, {
         method: "PUT",
@@ -404,28 +455,32 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
         body: JSON.stringify({ active: !product.active }),
       });
       if (res.ok) {
-        showNotif(product.active ? "Produit désactivé" : "Produit activé");
+        showNotif(product.active ? "Produit d\u00e9sactiv\u00e9" : "Produit r\u00e9activ\u00e9");
         loadProducts();
+      } else {
+        showNotif("Erreur lors du changement de statut");
       }
     } catch {
-      showNotif("Erreur");
+      showNotif("Erreur r\u00e9seau");
+    } finally {
+      setTogglingId(null);
     }
   }
 
   async function handleDelete(product: Product) {
-    if (!confirm(`Supprimer "${product.name}" ? Cette action est irréversible.`)) return;
+    if (!confirm(`Supprimer "${product.name}" ? Cette action est irr\u00e9versible.`)) return;
     try {
       const res = await fetch(`/api/products/${product.id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        showNotif("Produit supprimé");
+        showNotif("Produit supprim\u00e9");
         loadProducts();
       } else {
         showNotif("Erreur lors de la suppression");
       }
     } catch {
-      showNotif("Erreur réseau");
+      showNotif("Erreur r\u00e9seau");
     }
   }
 
@@ -441,12 +496,12 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
             <div>
               <h1 className="font-black text-base tracking-tight">Gestion des Produits</h1>
               <p className="text-xs text-muted-foreground">
-                Mwaiseni Services SARL &mdash; {isSuperAdmin ? "Super Admin" : "Éditeur"}
+                Mwaiseni Services SARL &mdash; {isSuperAdmin ? "Super Admin" : "\u00c9diteur"}
               </p>
             </div>
           </div>
           <Button variant="outline" onClick={onLogout} className="rounded-xl font-semibold border-gray-200">
-            <LogOut className="w-4 h-4 mr-2" />Déconnexion
+            <LogOut className="w-4 h-4 mr-2" />D\u00e9connexion
           </Button>
         </div>
       </header>
@@ -463,19 +518,19 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
         {/* Toolbar */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <p className="text-muted-foreground text-sm">{products.length} produit(s) au total</p>
+            <p className="text-muted-foreground text-sm">
+              {products.filter(p => p.active).length} actif(s) / {products.length} produit(s) au total
+            </p>
           </div>
-          {(isSuperAdmin || true) && (
-            <Button
-              onClick={() => {
-                setEditingProduct(null);
-                setIsCreating(true);
-              }}
-              className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20"
-            >
-              <Plus className="w-4 h-4 mr-2" />Nouveau produit
-            </Button>
-          )}
+          <Button
+            onClick={() => {
+              setEditingProduct(null);
+              setIsCreating(true);
+            }}
+            className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20"
+          >
+            <Plus className="w-4 h-4 mr-2" />Nouveau produit
+          </Button>
         </div>
 
         {/* Products list */}
@@ -486,15 +541,15 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
         ) : products.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-gray-100">
             <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-muted-foreground font-semibold">Aucun produit dans la base de données</p>
-            <p className="text-muted-foreground text-sm mt-1">Le site affiche les produits par défaut.</p>
+            <p className="text-muted-foreground font-semibold">Aucun produit dans la base de donn\u00e9es</p>
+            <p className="text-muted-foreground text-sm mt-1">Le site affiche les produits par d\u00e9faut.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {products.map((product) => (
               <div
                 key={product.id}
-                className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all duration-300 ${!product.active ? "opacity-60 border-gray-200" : "border-gray-100"}`}
+                className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all duration-300 ${!product.active ? "opacity-70 border-gray-200" : "border-gray-100"}`}
               >
                 <div className="flex items-center gap-5 p-5">
                   {/* Image */}
@@ -510,7 +565,7 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-base tracking-tight truncate">{product.name}</h3>
-                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${product.active ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${product.active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"}`}>
                         {product.active ? "Actif" : "Inactif"}
                       </span>
                     </div>
@@ -527,15 +582,35 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 shrink-0">
+                    {/* Toggle Active/Inactive — BIG VISIBLE BUTTON */}
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleToggleActive(product)}
-                      className="rounded-xl border-gray-200 h-9 w-9 p-0"
-                      title={product.active ? "Désactiver" : "Activer"}
+                      disabled={togglingId === product.id}
+                      className={`rounded-xl h-9 px-3 flex items-center gap-1.5 font-semibold text-xs ${
+                        product.active
+                          ? "border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400"
+                          : "border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400"
+                      }`}
+                      title={product.active ? "D\u00e9sactiver" : "R\u00e9activer"}
                     >
-                      {product.active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {togglingId === product.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : product.active ? (
+                        <>
+                          <ToggleRight className="w-4 h-4" />
+                          <span className="hidden sm:inline">D\u00e9sactiver</span>
+                        </>
+                      ) : (
+                        <>
+                          <ToggleLeft className="w-4 h-4" />
+                          <span className="hidden sm:inline">R\u00e9activer</span>
+                        </>
+                      )}
                     </Button>
+
+                    {/* Edit */}
                     <Button
                       variant="outline"
                       size="sm"
@@ -548,6 +623,8 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
                     >
                       <Pencil className="w-4 h-4" />
                     </Button>
+
+                    {/* Delete — super admin only */}
                     {isSuperAdmin && (
                       <Button
                         variant="outline"
