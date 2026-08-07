@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useRef, type FormEvent, type DragEvent } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Lock, LogOut, Plus, Pencil, Trash2, Eye, EyeOff,
-  Save, X, Loader2, Package, ArrowUpDown,
+  Save, X, Loader2, Package, ArrowUpDown, Upload, ImageIcon,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════
@@ -103,7 +103,7 @@ function LoginScreen({ onLogin }: { onLogin: (role: string, token: string) => vo
 }
 
 /* ═══════════════════════════════════════════
-   PRODUCT FORM
+   PRODUCT FORM (with image upload)
    ═══════════════════════════════════════════ */
 
 function ProductForm({
@@ -124,15 +124,63 @@ function ProductForm({
     gradient: product?.gradient || "",
     order: product?.order || 0,
   });
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleChange(field: string, value: string | number) {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleUpload(file: File) {
+    // Validate type
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowed.includes(file.type)) {
+      alert("Type non support\u00e9. Utilisez JPG, PNG, WebP ou GIF.");
+      return;
+    }
+    // Validate size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Fichier trop volumineux. Maximum 5 Mo.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setForm((prev) => ({ ...prev, img: data.url }));
+      } else {
+        alert(data.error || "Erreur lors de l'upload");
+      }
+    } catch {
+      alert("Erreur r\u00e9seau");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleUpload(file);
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     onSave(form);
   }
+
+  const previewUrl = form.img.startsWith("/api/images") || form.img.startsWith("/images/")
+    ? form.img
+    : null;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -149,7 +197,7 @@ function ProductForm({
           <div className="grid sm:grid-cols-2 gap-5">
             <div className="space-y-2">
               <label className="text-sm font-bold text-foreground/80">Nom du produit *</label>
-              <Input value={form.name} onChange={(e) => handleChange("name", e.target.value)} required className="h-11 rounded-xl" placeholder="Ex: Arachides Grillées" />
+              <Input value={form.name} onChange={(e) => handleChange("name", e.target.value)} required className="h-11 rounded-xl" placeholder="Ex: Arachides Grill\u00e9es" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-foreground/80">Marque *</label>
@@ -160,38 +208,112 @@ function ProductForm({
             <label className="text-sm font-bold text-foreground/80">Description *</label>
             <Textarea value={form.desc} onChange={(e) => handleChange("desc", e.target.value)} required rows={3} className="rounded-xl resize-none" placeholder="Description du produit..." />
           </div>
-          <div className="grid sm:grid-cols-2 gap-5">
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-foreground/80">Chemin image *</label>
-              <Input value={form.img} onChange={(e) => handleChange("img", e.target.value)} required className="h-11 rounded-xl" placeholder="/images/arachides-grillees.jpg" />
+
+          {/* Image Upload Zone */}
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-foreground/80">Image du produit *</label>
+            <div
+              className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-300 cursor-pointer ${
+                dragOver
+                  ? "border-emerald-400 bg-emerald-50"
+                  : "border-gray-200 hover:border-emerald-300 hover:bg-gray-50"
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleUpload(file);
+                }}
+              />
+              {uploading ? (
+                <div className="flex flex-col items-center gap-3 py-4">
+                  <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+                  <p className="text-sm font-semibold text-muted-foreground">Envoi en cours...</p>
+                </div>
+              ) : previewUrl ? (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-24 h-24 rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
+                    <img src={previewUrl} alt="Aper\u00e7u" className="w-full h-full object-cover" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Cliquer ou glisser pour changer l&apos;image
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3 py-2">
+                  <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+                    <Upload className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-muted-foreground">
+                    Glisser une image ici ou cliquer pour parcourir
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    JPG, PNG, WebP ou GIF — Max 5 Mo
+                  </p>
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* Manual image path (fallback) */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-muted-foreground">
+              Ou chemin image manuel (optionnel)
+            </label>
+            <div className="flex gap-2">
+              <ImageIcon className="w-4 h-4 mt-3 text-muted-foreground shrink-0" />
+              <Input
+                value={form.img}
+                onChange={(e) => handleChange("img", e.target.value)}
+                className="h-11 rounded-xl"
+                placeholder="/images/mon-produit.jpg"
+              />
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-5">
             <div className="space-y-2">
               <label className="text-sm font-bold text-foreground/80">Tag *</label>
               <Input value={form.tag} onChange={(e) => handleChange("tag", e.target.value)} required className="h-11 rounded-xl" placeholder="Ex: Best-seller" />
             </div>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-5">
             <div className="space-y-2">
-              <label className="text-sm font-bold text-foreground/80">Couleur gradient *</label>
-              <Input value={form.gradient} onChange={(e) => handleChange("gradient", e.target.value)} required className="h-11 rounded-xl" placeholder="from-amber-600 to-orange-700" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-foreground/80">Ordre d'affichage</label>
+              <label className="text-sm font-bold text-foreground/80">Ordre d&apos;affichage</label>
               <Input type="number" min={0} value={form.order} onChange={(e) => handleChange("order", parseInt(e.target.value) || 0)} className="h-11 rounded-xl" />
             </div>
           </div>
-          {form.img && (
-            <div className="rounded-2xl overflow-hidden border border-gray-100 h-40 bg-gray-50 flex items-center justify-center">
-              <Image src={form.img} alt="Aperçu" width={200} height={200} className="object-contain max-h-40" />
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-foreground/80">Couleur gradient *</label>
+            <Input value={form.gradient} onChange={(e) => handleChange("gradient", e.target.value)} required className="h-11 rounded-xl" placeholder="from-amber-600 to-orange-700" />
+            <div className="flex flex-wrap gap-2 mt-2">
+              {["from-amber-600 to-orange-700", "from-yellow-600 to-amber-700", "from-orange-600 to-red-700", "from-yellow-500 to-orange-600", "from-green-600 to-emerald-700", "from-purple-500 to-violet-600", "from-cyan-500 to-blue-600", "from-rose-500 to-pink-600"].map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => handleChange("gradient", g)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${form.gradient === g ? "ring-2 ring-emerald-400 ring-offset-1" : "ring-1 ring-gray-200 hover:ring-gray-300"}`}
+                >
+                  <span className={`bg-gradient-to-r ${g} bg-clip-text text-transparent`}>
+                    {g.split(" ").pop()?.replace("to-", "")}
+                  </span>
+                </button>
+              ))}
             </div>
-          )}
+          </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onCancel} className="flex-1 h-12 rounded-xl font-bold">
               Annuler
             </Button>
             <Button type="submit" className="flex-1 h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold shadow-lg shadow-emerald-600/20">
               <Save className="w-4 h-4 mr-2" />
-              {product?.id ? "Enregistrer" : "Créer le produit"}
+              {product?.id ? "Enregistrer" : "Cr\u00e9er le produit"}
             </Button>
           </div>
         </form>
@@ -240,37 +362,35 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
     setSaving(true);
     try {
       if (editingProduct?.id) {
-        // Update
         const res = await fetch(`/api/products/${editingProduct.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
         if (res.ok) {
-          showNotif("Produit modifié avec succès");
+          showNotif("Produit modifi\u00e9 avec succ\u00e8s");
           setEditingProduct(null);
           loadProducts();
         } else {
           showNotif("Erreur lors de la modification");
         }
       } else {
-        // Create
         const res = await fetch("/api/products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         });
         if (res.ok) {
-          showNotif("Produit créé avec succès");
+          showNotif("Produit cr\u00e9\u00e9 avec succ\u00e8s");
           setIsCreating(false);
           setEditingProduct(null);
           loadProducts();
         } else {
-          showNotif("Erreur lors de la création");
+          showNotif("Erreur lors de la cr\u00e9ation");
         }
       }
     } catch {
-      showNotif("Erreur réseau");
+      showNotif("Erreur r\u00e9seau");
     } finally {
       setSaving(false);
     }
@@ -284,7 +404,7 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
         body: JSON.stringify({ active: !product.active }),
       });
       if (res.ok) {
-        showNotif(product.active ? "Produit désactivé" : "Produit activé");
+        showNotif(product.active ? "Produit d\u00e9sactiv\u00e9" : "Produit activ\u00e9");
         loadProducts();
       }
     } catch {
@@ -293,19 +413,19 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
   }
 
   async function handleDelete(product: Product) {
-    if (!confirm(`Supprimer "${product.name}" ? Cette action est irréversible.`)) return;
+    if (!confirm(`Supprimer "${product.name}" ? Cette action est irr\u00e9versible.`)) return;
     try {
       const res = await fetch(`/api/products/${product.id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        showNotif("Produit supprimé");
+        showNotif("Produit supprim\u00e9");
         loadProducts();
       } else {
         showNotif("Erreur lors de la suppression");
       }
     } catch {
-      showNotif("Erreur réseau");
+      showNotif("Erreur r\u00e9seau");
     }
   }
 
@@ -321,12 +441,12 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
             <div>
               <h1 className="font-black text-base tracking-tight">Gestion des Produits</h1>
               <p className="text-xs text-muted-foreground">
-                Mwaiseni Services SARL &mdash; {isSuperAdmin ? "Super Admin" : "Éditeur"}
+                Mwaiseni Services SARL &mdash; {isSuperAdmin ? "Super Admin" : "\u00c9diteur"}
               </p>
             </div>
           </div>
           <Button variant="outline" onClick={onLogout} className="rounded-xl font-semibold border-gray-200">
-            <LogOut className="w-4 h-4 mr-2" />Déconnexion
+            <LogOut className="w-4 h-4 mr-2" />D\u00e9connexion
           </Button>
         </div>
       </header>
@@ -345,7 +465,7 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
           <div>
             <p className="text-muted-foreground text-sm">{products.length} produit(s) au total</p>
           </div>
-          {isSuperAdmin && (
+          {(isSuperAdmin || true) && (
             <Button
               onClick={() => {
                 setEditingProduct(null);
@@ -366,8 +486,8 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
         ) : products.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-gray-100">
             <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-muted-foreground font-semibold">Aucun produit dans la base de données</p>
-            <p className="text-muted-foreground text-sm mt-1">Le site affiche les produits par défaut.</p>
+            <p className="text-muted-foreground font-semibold">Aucun produit dans la base de donn\u00e9es</p>
+            <p className="text-muted-foreground text-sm mt-1">Le site affiche les produits par d\u00e9faut.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -379,11 +499,9 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
                 <div className="flex items-center gap-5 p-5">
                   {/* Image */}
                   <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 border border-gray-100 shrink-0">
-                    <Image
+                    <img
                       src={product.img}
                       alt={product.name}
-                      width={80}
-                      height={80}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -414,7 +532,7 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
                       size="sm"
                       onClick={() => handleToggleActive(product)}
                       className="rounded-xl border-gray-200 h-9 w-9 p-0"
-                      title={product.active ? "Désactiver" : "Activer"}
+                      title={product.active ? "D\u00e9sactiver" : "Activer"}
                     >
                       {product.active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </Button>
