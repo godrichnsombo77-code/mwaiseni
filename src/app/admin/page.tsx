@@ -136,7 +136,7 @@ function ProductForm({
     // Validate type
     const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (!allowed.includes(file.type)) {
-      alert("Type non support\u00e9. Utilisez JPG, PNG, WebP ou GIF.");
+      alert("Type non supporté. Utilisez JPG, PNG, WebP ou GIF.");
       return;
     }
     // Validate size (5MB max)
@@ -160,7 +160,7 @@ function ProductForm({
         alert(data.error || "Erreur lors de l'upload");
       }
     } catch {
-      alert("Erreur r\u00e9seau");
+      alert("Erreur réseau");
     } finally {
       setUploading(false);
     }
@@ -197,7 +197,7 @@ function ProductForm({
           <div className="grid sm:grid-cols-2 gap-5">
             <div className="space-y-2">
               <label className="text-sm font-bold text-foreground/80">Nom du produit *</label>
-              <Input value={form.name} onChange={(e) => handleChange("name", e.target.value)} required className="h-11 rounded-xl" placeholder="Ex: Arachides Grill\u00e9es" />
+              <Input value={form.name} onChange={(e) => handleChange("name", e.target.value)} required className="h-11 rounded-xl" placeholder="Ex: Arachides Grillées" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-bold text-foreground/80">Marque *</label>
@@ -241,7 +241,7 @@ function ProductForm({
               ) : previewUrl ? (
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-24 h-24 rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
-                    <img src={previewUrl} alt="Aper\u00e7u" className="w-full h-full object-cover" />
+                    <img src={previewUrl} alt="Aperçu" className="w-full h-full object-cover" />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Cliquer ou glisser pour changer l&apos;image
@@ -313,7 +313,7 @@ function ProductForm({
             </Button>
             <Button type="submit" className="flex-1 h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold shadow-lg shadow-emerald-600/20">
               <Save className="w-4 h-4 mr-2" />
-              {product?.id ? "Enregistrer" : "Cr\u00e9er le produit"}
+              {product?.id ? "Enregistrer" : "Créer le produit"}
             </Button>
           </div>
         </form>
@@ -368,7 +368,7 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
           body: JSON.stringify(data),
         });
         if (res.ok) {
-          showNotif("Produit modifi\u00e9 avec succ\u00e8s");
+          showNotif("Produit modifié avec succès");
           setEditingProduct(null);
           loadProducts();
         } else {
@@ -381,16 +381,16 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
           body: JSON.stringify(data),
         });
         if (res.ok) {
-          showNotif("Produit cr\u00e9\u00e9 avec succ\u00e8s");
+          showNotif("Produit créé avec succès");
           setIsCreating(false);
           setEditingProduct(null);
           loadProducts();
         } else {
-          showNotif("Erreur lors de la cr\u00e9ation");
+          showNotif("Erreur lors de la création");
         }
       }
     } catch {
-      showNotif("Erreur r\u00e9seau");
+      showNotif("Erreur réseau");
     } finally {
       setSaving(false);
     }
@@ -404,7 +404,7 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
         body: JSON.stringify({ active: !product.active }),
       });
       if (res.ok) {
-        showNotif(product.active ? "Produit d\u00e9sactiv\u00e9" : "Produit activ\u00e9");
+        showNotif(product.active ? "Produit désactivé" : "Produit activé");
         loadProducts();
       }
     } catch {
@@ -413,19 +413,19 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
   }
 
   async function handleDelete(product: Product) {
-    if (!confirm(`Supprimer "${product.name}" ? Cette action est irr\u00e9versible.`)) return;
+    if (!confirm(`Supprimer "${product.name}" ? Cette action est irréversible.`)) return;
     try {
       const res = await fetch(`/api/products/${product.id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        showNotif("Produit supprim\u00e9");
+        showNotif("Produit supprimé");
         loadProducts();
       } else {
         showNotif("Erreur lors de la suppression");
       }
     } catch {
-      showNotif("Erreur r\u00e9seau");
+      showNotif("Erreur réseau");
     }
   }
 
@@ -441,12 +441,12 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
             <div>
               <h1 className="font-black text-base tracking-tight">Gestion des Produits</h1>
               <p className="text-xs text-muted-foreground">
-                Mwaiseni Services SARL &mdash; {isSuperAdmin ? "Super Admin" : "\u00c9diteur"}
+                Mwaiseni Services SARL &mdash; {isSuperAdmin ? "Super Admin" : "Éditeur"}
               </p>
             </div>
           </div>
           <Button variant="outline" onClick={onLogout} className="rounded-xl font-semibold border-gray-200">
-            <LogOut className="w-4 h-4 mr-2" />D\u00e9connexion
+            <LogOut className="w-4 h-4 mr-2" />Déconnexion
           </Button>
         </div>
       </header>
@@ -486,8 +486,8 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
         ) : products.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-gray-100">
             <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-muted-foreground font-semibold">Aucun produit dans la base de donn\u00e9es</p>
-            <p className="text-muted-foreground text-sm mt-1">Le site affiche les produits par d\u00e9faut.</p>
+            <p className="text-muted-foreground font-semibold">Aucun produit dans la base de données</p>
+            <p className="text-muted-foreground text-sm mt-1">Le site affiche les produits par défaut.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -532,7 +532,7 @@ function AdminDashboard({ role, token, onLogout }: { role: string; token: string
                       size="sm"
                       onClick={() => handleToggleActive(product)}
                       className="rounded-xl border-gray-200 h-9 w-9 p-0"
-                      title={product.active ? "D\u00e9sactiver" : "Activer"}
+                      title={product.active ? "Désactiver" : "Activer"}
                     >
                       {product.active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </Button>
