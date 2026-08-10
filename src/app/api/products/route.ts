@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    await requireSession();
     const body = await request.json();
     const { name, brand, desc, img, tag, gradient } = body;
 
@@ -46,6 +48,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
     console.error("Error creating product:", error);
     return NextResponse.json({ error: "Erreur lors de la création" }, { status: 500 });
   }
