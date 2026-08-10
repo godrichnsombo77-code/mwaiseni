@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { requireSession } from "@/lib/auth";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
@@ -13,27 +14,41 @@ const ALLOWED_TYPES = new Set([
   "image/gif",
 ]);
 
+function json(data: unknown, status = 200) {
+  return NextResponse.json(data, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+      "Content-Type": "application/json; charset=utf-8",
+    },
+  });
+}
+
 export async function POST(request: Request) {
   try {
     await requireSession();
+
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return json({ error: "Stockage d'images non configuré" }, 503);
+    }
 
     const formData = await request.formData();
     const value = formData.get("file");
 
     if (!(value instanceof File)) {
-      return NextResponse.json({ error: "Aucun fichier fourni" }, { status: 400 });
+      return json({ error: "Aucun fichier fourni" }, 400);
     }
 
     if (!ALLOWED_TYPES.has(value.type)) {
-      return NextResponse.json({ error: "Format d'image non supporté" }, { status: 400 });
+      return json({ error: "Format d'image non supporté. Utilisez JPG, PNG, WebP ou GIF." }, 400);
+    }
+
+    if (value.size === 0) {
+      return json({ error: "Le fichier image est vide" }, 400);
     }
 
     if (value.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "Image trop volumineuse (5 Mo maximum)" }, { status: 413 });
-    }
-
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      return NextResponse.json({ error: "Stockage d'images non configuré" }, { status: 503 });
+      return json({ error: "Image trop volumineuse (5 Mo maximum)" }, 413);
     }
 
     const extension = value.type === "image/jpeg" ? "jpg" : value.type.split("/")[1];
@@ -43,12 +58,12 @@ export async function POST(request: Request) {
       addRandomSuffix: false,
     });
 
-    return NextResponse.json({ url: blob.url });
+    return json({ url: blob.url });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+      return json({ error: "Non autorisé. Veuillez vous reconnecter." }, 401);
     }
     console.error("Upload error:", error);
-    return NextResponse.json({ error: "Erreur lors de l'envoi" }, { status: 500 });
+    return json({ error: "Erreur lors de l'envoi de l'image" }, 500);
   }
 }
