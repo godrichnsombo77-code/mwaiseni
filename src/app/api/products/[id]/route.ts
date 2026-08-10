@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireSession } from "@/lib/auth";
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireSession();
     const { id } = await params;
     const body = await request.json();
     const { name, brand, desc, img, tag, gradient, active, order } = body;
@@ -26,6 +28,9 @@ export async function PUT(
 
     return NextResponse.json(product);
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
     console.error("Error updating product:", error);
     return NextResponse.json({ error: "Erreur lors de la modification" }, { status: 500 });
   }
@@ -36,14 +41,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireSession();
     const { id } = await params;
 
-    await db.product.delete({
-      where: { id },
-    });
-
+    await db.product.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+    }
     console.error("Error deleting product:", error);
     return NextResponse.json({ error: "Erreur lors de la suppression" }, { status: 500 });
   }
